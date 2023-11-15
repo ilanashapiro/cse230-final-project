@@ -4,9 +4,9 @@
 ### Project Description
 We will create a command-line application that helps users learn to type. 
 The application will
-1. Give users an easy and fun environment to work on their typeing.
+1. Give users an easy and fun environment to work on their typing.
 2. Provide users with a curriculum of prompts to allow users to gradually develop their typing skills.
-3. Gradually reveal mezmorizing images as the user types to make typing fun, mysterious, artistic, and more!
+3. Gradually reveal mesmerizing images as the user types to make typing fun, mysterious, artistic, and more!
 
 ### Project Motivation
 We all have a friend whose typing is painful to watch. 
@@ -24,9 +24,9 @@ Our project capitalizes on curiosity and goal-oriented behavior to teach typing 
 
 ### Plan
 We will begin by implementing a minimum viable product. The minimum viable product can include the following set of features:
-- Choose an image and defining a mechanism for gradually revealing it to the user.
-- Finding prompts from a restricted set of letters or numbers. (Coherency is nice but not required for the MVP)
-- Keep track of user typing speed and error rate across the entore prompt to inform whether or not they can progress through the curriculum.
+- Choose an image and define a mechanism for gradually revealing it to the user.
+- Find prompts from a restricted set of letters or numbers. (Coherency is nice but not required for the MVP)
+- Keep track of user typing speed and error rate across the entire prompt to inform whether or not they can progress through the curriculum.
 - Combine these features into a single command-line application.
 
 After completing our minimum viable product, we will further develop the application to meet the goals described in the Project Goals section. 

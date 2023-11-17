@@ -31,3 +31,14 @@ We will begin by implementing a minimum viable product. The minimum viable produ
 - Combine these features into a single command-line application.
 
 After completing our minimum viable product, we will further develop the application to meet the goals described in the Project Goals section.
+
+### Related Projects
+We have conducted research on a variety of exisiting typing-tutor/typing-game projects, including the following:
+- [https://www.keybr.com/](https://www.keybr.com/)
+- [https://play.typeracer.com/](https://play.typeracer.com/)
+- [https://www.coderacer.app/](https://www.coderacer.app/)
+- [https://github.com/callum-oakley/gotta-go-fast](https://github.com/callum-oakley/gotta-go-fast)
+- [https://github.com/ChrisPenner/void-space](https://github.com/ChrisPenner/void-space)
+- [https://github.com/rmehri01/thock](https://github.com/rmehri01/thock)
+
+Our project will differ from these previous works by incorporating the feature of type-to-complete images (images that are displayed piece by piece to reflect the user's completion progress for a given typing prompt).

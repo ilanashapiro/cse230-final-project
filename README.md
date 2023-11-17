@@ -1,4 +1,5 @@
 # Learn to Type with Pretty Pictures
+Kyeling Ong, Kyle Thompson, Savitha Ravi, Ilana Shapiro
 
 ## Proposal
 ### Project Description

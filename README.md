@@ -42,3 +42,27 @@ We have conducted research on a variety of exisiting typing-tutor/typing-game pr
 - [https://github.com/rmehri01/thock](https://github.com/rmehri01/thock)
 
 Our project will differ from these previous works by incorporating the feature of type-to-complete images (images that are displayed piece by piece to reflect the user's completion progress for a given typing prompt).
+
+## Updates 
+(as of 12/01/23)
+
+### Application Architecture  
+<!-- What is the architecture of your application (the key components)? -->
+Our application contains 4 key components:
+- _Image interface_: controls how much of the image is revealed as the user types
+- _User input tracker_: keeps track of the user's typing progress and errors using a state monad
+- _Prompt generator_: creates short passages using Arbitrary class instances and/or Generators
+- _Difficulty level calibrator_: integrates the above components by associating user progress with complexity of images and text generated
+
+### Challenges 
+<!-- What challenges (if any) did you have so far and how did you solve them? -->
+One challenge we faced so far is determining how to translate a user's progress statistic into revealing a portion of the image. We considered several options such as revealing the ASCII image line by line vs. masking parts of the image, whether part of the image is deleted when the user makes an error or whether the user is penalized with additional text, etc.
+
+We decided to adhere to the following definitions:
+- user_score = # of correct words - # of errors
+- % of image filled in = score / desired score, where desired score = desired # of correct words
+
+### Progress Towards Goals
+<!-- Do you expect to meet your goals until the deadline?
+If not, how will you modify your goals? -->
+We expect to meet our goal of completing a minimum viable product with the 4 components described above. If necessary, we can modify our goals by simplifying some parts of our implementation, for example using finite prompts or revealing images line-by-line. Additional features--such as typing speed, fine-grained error storing, and an advanced version with information about which characters a user tends to make errors on--can be incorporated as time allows.

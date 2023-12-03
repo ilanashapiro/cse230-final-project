@@ -28,10 +28,11 @@ data TutorState = TS { _edit :: E.Editor String EditorName, tutorImg :: V.Image,
 makeLenses ''TutorState
 
 drawTutor :: TutorState -> [T.Widget EditorName]
-drawTutor ts = [img <=> e] 
+drawTutor ts = [img <=> e <=> wordCount] 
     where
         e           = E.renderEditor (C.str . unlines) True (ts^.edit)
         img         = C.raw (tutorImg ts)
+        wordCount   = C.strWrap $ "Word count: " ++ show (ts^.wordIdx)
 
 updateWordIdx :: TutorState -> TutorState
 updateWordIdx ts =
@@ -41,9 +42,13 @@ updateWordIdx ts =
 
 handleTutorEvent :: T.BrickEvent EditorName e -> T.EventM EditorName TutorState ()
 handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
-handleTutorEvent e                                              = do
-    zoom edit (E.handleEditorEvent e)
-    C.modify $ updateWordIdx
+handleTutorEvent e@(V.VtyEvent (V.EvKey keyStroke _))           = 
+  let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown]
+  in if elem keyStroke noOp
+       then return ()
+     else do
+       zoom edit (E.handleEditorEvent e)
+       C.modify $ updateWordIdx
 
 initialState :: V.Image -> TutorState
 initialState tImage = TS (E.editor EName Nothing "") tImage 0
@@ -56,8 +61,8 @@ theMap = A.attrMap V.defAttr
 
 appCursor :: TutorState -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
 appCursor ts cursorLocations
-  | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True
-  | otherwise = Nothing
+  | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
+  | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
 
 tutorApp :: M.App TutorState e EditorName 
 tutorApp = 

@@ -24,7 +24,7 @@ import qualified Brick as C
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
-data TutorState = TS { _edit :: E.Editor String EditorName, tutorImg :: V.Image}
+data TutorState = TS { _edit :: E.Editor String EditorName, tutorImg :: V.Image, _wordIdx :: Int }
 makeLenses ''TutorState
 
 drawTutor :: TutorState -> [T.Widget EditorName]
@@ -33,27 +33,36 @@ drawTutor ts = [img <=> e]
         e           = E.renderEditor (C.str . unlines) True (ts^.edit)
         img         = C.raw (tutorImg ts)
 
+updateWordIdx :: TutorState -> TutorState
+updateWordIdx ts =
+  let text = E.getEditContents $ ts^.edit
+      wordList = words $ concat text  -- Split text into words
+  in ts & wordIdx .~ length wordList -- .~ is the lens operator for setting or updating the value viewed by the lens
+
 handleTutorEvent :: T.BrickEvent EditorName e -> T.EventM EditorName TutorState ()
 handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
 handleTutorEvent e                                              = do
     zoom edit (E.handleEditorEvent e)
+    C.modify $ updateWordIdx
 
 initialState :: V.Image -> TutorState
-initialState tImage = TS (E.editor EName Nothing "") tImage
+initialState tImage = TS (E.editor EName Nothing "") tImage 0
 
 theMap :: A.AttrMap
 theMap = A.attrMap V.defAttr
     [ (E.editAttr,                   V.white `on` V.blue)
-    , (E.editFocusedAttr,            V.black `on` V.yellow)
+    , (E.editFocusedAttr,            V.black `on` V.white)
     ]
 
 appCursor :: TutorState -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
-appCursor _ _ = Nothing 
+appCursor ts cursorLocations
+  | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True
+  | otherwise = Nothing
 
 tutorApp :: M.App TutorState e EditorName 
 tutorApp = 
     M.App { M.appDraw           = drawTutor
-          , M.appChooseCursor   = appCursor
+          , M.appChooseCursor   = \_ -> C.showCursorNamed EName
           , M.appHandleEvent    = handleTutorEvent
           , M.appStartEvent     = return ()
           , M.appAttrMap        = const theMap

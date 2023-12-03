@@ -1,3 +1,4 @@
+
 {-# LANGUAGE TemplateHaskell #-} -- For using lenses.
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
@@ -22,27 +23,23 @@ import qualified Brick as V
 import Graphics.Vty (Key(KChar))
 import qualified Brick as C
 
-data EditorName = EName deriving (Eq, Ord, Show)
+import ImageGen (ImageDocs, partialImage)
 
-data TutorState = TS { _edit :: E.Editor String EditorName, tutorImg :: V.Image}
-makeLenses ''TutorState
+data ImageName = IName deriving (Eq, Ord, Show)
+data ImageState = IS {cur :: Int, stop :: Int, imgDocs :: ImageDocs}
 
-drawTutor :: TutorState -> [T.Widget EditorName]
-drawTutor ts = [img <=> e] 
+drawTutor :: ImageState -> [T.Widget ImageName]
+drawTutor is = [img]
     where
-        e           = E.renderEditor (C.str . unlines) True (ts^.edit)
-        img         = C.raw (tutorImg ts)
+        img = C.raw $ partialImage (imgDocs is) (cur is) (stop is)
 
-
-handleTutorEvent :: T.BrickEvent EditorName e -> T.EventM EditorName TutorState ()
+handleTutorEvent :: T.BrickEvent ImageName e -> T.EventM ImageName ImageState()
 handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
-handleTutorEvent e                                              = do
-    zoom edit (E.handleEditorEvent e)
+handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'g') []))          = C.halt
+handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'e') []))          = C.halt
 
-
-initialState :: V.Image -> TutorState
-initialState tImage = TS (E.editor EName Nothing "") tImage
-
+initialState :: ImageDocs -> ImageState 
+initialState imgDocs = IS 0 20 imgDocs
 
 theMap :: A.AttrMap
 theMap = A.attrMap V.defAttr
@@ -50,10 +47,10 @@ theMap = A.attrMap V.defAttr
     , (E.editFocusedAttr,            V.black `on` V.yellow)
     ]
 
-appCursor :: TutorState -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
+appCursor :: ImageState -> [T.CursorLocation ImageName] -> Maybe (T.CursorLocation ImageName)
 appCursor _ _ = Nothing 
 
-tutorApp :: M.App TutorState e EditorName 
+tutorApp :: M.App ImageState e ImageName 
 tutorApp = 
     M.App { M.appDraw           = drawTutor
           , M.appChooseCursor   = appCursor
@@ -61,16 +58,6 @@ tutorApp =
           , M.appStartEvent     = return ()
           , M.appAttrMap        = const theMap
     }
-
-
-asciiImg :: String -> IO V.Image
-asciiImg path = do
-    contents        <- readFile path
-    let raw_lines   = lines contents
-    let attr        = V.Attr V.Default V.Default V.Default V.Default
-    let imgs        = map (V.string attr) raw_lines 
-    return (V.vertCat imgs)
-
 
 main :: IO ()
 main = do

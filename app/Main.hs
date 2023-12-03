@@ -43,12 +43,12 @@ updateWordIdx ts =
 handleTutorEvent :: T.BrickEvent EditorName e -> T.EventM EditorName TutorState ()
 handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
 handleTutorEvent e@(V.VtyEvent (V.EvKey keyStroke _))           = 
-  let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown]
-  in if elem keyStroke noOp
-       then return ()
-     else do
-       zoom edit (E.handleEditorEvent e)
-       C.modify $ updateWordIdx
+    let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown]
+    in if elem keyStroke noOp
+        then return ()
+      else do
+        zoom edit (E.handleEditorEvent e)
+        C.modify $ updateWordIdx
 
 initialState :: V.Image -> TutorState
 initialState tImage = TS (E.editor EName Nothing "") tImage 0
@@ -61,8 +61,8 @@ theMap = A.attrMap V.defAttr
 
 appCursor :: TutorState -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
 appCursor ts cursorLocations
-  | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
-  | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
+    | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
+    | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
 
 tutorApp :: M.App TutorState e EditorName 
 tutorApp = 

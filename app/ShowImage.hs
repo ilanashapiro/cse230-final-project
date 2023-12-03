@@ -23,7 +23,7 @@ import qualified Brick as V
 import Graphics.Vty (Key(KChar))
 import qualified Brick as C
 
-import ImageGen (ImageDocs, partialImage)
+import ImageGen (ImageDocs, partialImage, getRandomImageDocs)
 
 data ImageName = IName deriving (Eq, Ord, Show)
 data ImageState = IS {cur :: Int, stop :: Int, imgDocs :: ImageDocs}
@@ -61,6 +61,6 @@ tutorApp =
 
 main :: IO ()
 main = do
-    bison   <- asciiImg "art/bison.txt" 
-    st      <- M.defaultMain tutorApp (initialState bison)
+    iDocs   <- getRandomImageDocs "./art"
+    st      <- M.defaultMain tutorApp (initialState iDocs)
     return ()

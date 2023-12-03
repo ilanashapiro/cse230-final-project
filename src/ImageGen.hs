@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-module ImageGen (ImageDocs, partialImage) where
+module ImageGen (ImageDocs, partialImage, getRandomImageDocs) where
 
 import System.Directory (listDirectory)
 import Control.Monad.Random 
@@ -23,17 +23,11 @@ docFromPath path = do
 defaultAttr :: Attr
 defaultAttr = V.Attr V.Default V.Default V.Default V.Default
 
-docToImage :: Doc Char -> V.Image
-docToImage (D matrix) = V.vertCat lineImgs 
-    where
-        lineImgs = map (V.string defaultAttr) matrix
-
 
 data ImageDocs = IDocs {
     growth  :: GrowthMethod, 
-    mainDoc :: Doc Char, 
-    maskDoc :: Doc Char} 
-    deriving (Show)
+    doc :: Doc Char
+} deriving (Show)
 
 maskRow :: [a] -> a -> [Bool] -> [a]
 maskRow [] _ _              = []
@@ -50,35 +44,44 @@ maskMatrix (r:rs) def (m:ms)  = maskedRow : maskMatrix rs def ms
 maskedImage :: Doc Char -> [[Bool]] -> V.Image 
 maskedImage (D cs) m = V.vertCat imageLines 
     where 
-        maskedLines = maskMatrix cs m 
-        imageLines  = map (v.string defaultAttr) maskedLines
+        maskedLines = maskMatrix cs ' ' m 
+        imageLines  = map (V.string defaultAttr) maskedLines
 
 
 fullLike :: [a] -> b -> [b]
-fullLike nil _      = nil
+fullLike [] _       = []
 fullLike (a:as) b   = b : fullLike as b
 
-firstNMask :: [[a]] -> Int -> [[b]]
-firstNMask nil    _ = nil
+
+firstNMask :: [[a]] -> Int -> [[Bool]]
+firstNMask []    _ = []
 firstNMask (r:rs) 0 = fullLike r False : firstNMask rs 0
 firstNMask (r:rs) n = fullLike r True  : firstNMask rs (n-1)
 
 
 partialImgLBLT2B :: Doc Char -> Int -> Int -> V.Image 
-partialImgLBLT2B (D lines) cur stop = maskedImage doc mask
+partialImgLBLT2B doc@(D lines) cur stop = maskedImage doc mask
     where 
         numLines = length lines * cur `div` stop
         mask     = firstNMask lines numLines 
 
+partialImage :: ImageDocs -> Int -> Int -> V.Image
+partialImage (IDocs LineByLineT2B d) = partialImgLBLT2B d 
+
+
+getRandomGrowth :: (MonadRandom m) => m GrowthMethod
+getRandomGrowth = do
+    let growths     = [LineByLineT2B]
+    idx             <- getRandomR (0, length growths)
+    return $ growths !! idx 
+
 
 getRandomImageDocs :: (MonadRandom m, MonadIO m) => String -> m ImageDocs
 getRandomImageDocs dirPath = do
-    imgFiles        <- liftIO $ listDirectory dirPath
-    mainIdx         <- getRandomR (0, length imgFiles)
-    maskIdx         <- getRandomR (0, length imgFiles) 
-    let mainPath    = imgFiles !! mainIdx
-    let maskPath    = imgFiles !! maskIdx 
-    mainDoc         <- liftIO $ docFromPath mainPath
-    maskDoc         <- liftIO $ docFromPath maskPath
-    return $ IDocs mainDoc maskDoc
+    imgFiles    <- liftIO $ listDirectory dirPath
+    idx         <- getRandomR (0, length imgFiles)
+    let path    = imgFiles !! idx 
+    doc         <- liftIO $ docFromPath path
+    growth      <- getRandomGrowth
+    return $ IDocs growth doc
 

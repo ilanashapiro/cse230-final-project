@@ -3,7 +3,10 @@ To install brick I had to run:
 `cabal install --lib brick`
 
 To run the application I had to run:
-`cabal run --ghc-options=-threaded`
+`cabal run --ghc-options=-threaded cse230-final-project`
+
+Altenatively, with `make` one can run\
+`make run` to run the app.
 
 ### Helpful Resources
 - I mainly followed the simple example given here:

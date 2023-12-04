@@ -18,61 +18,64 @@ import qualified Brick.AttrMap as A
 import qualified Brick.Focus as F
 import Brick.Util (on)
 import Control.Exception (handle)
-import qualified Brick as V
+import qualified Brick as B
 import Graphics.Vty (Key(KChar))
-import qualified Brick as C
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
-data State = ST { _edit :: E.Editor String EditorName, img :: V.Image, _wordIdx :: Int }
+data State = ST { _editor :: E.Editor String EditorName, img :: V.Image, _wordIdx :: Int }
 makeLenses ''State
 
-successAttrName :: C.AttrName
-successAttrName = C.attrName "success"
+successAttrName :: A.AttrName
+successAttrName = A.attrName "success"
 
-errorAttrName :: C.AttrName
-errorAttrName = C.attrName "error"
+errorAttrName :: A.AttrName
+errorAttrName = A.attrName "error"
 
-defaultAttrName :: C.AttrName
-defaultAttrName = C.attrName "default"
+defaultAttrName :: A.AttrName
+defaultAttrName = A.attrName "default"
 
 referenceText :: String
-referenceText = "This is an example reference text"
-
--- Function to compare SINGLE user input word against reference text
-checkWord :: String -> Int -> Bool
-checkWord inputWord wordIdx = (words referenceText) !! wordIdx == inputWord
+referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
+                \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers.\
+                \ In the distance, a family of deer grazed peacefully, their graceful movements adding to the serene\
+                \ symphony of nature. Birds soared overhead, painting the sky with fleeting strokes of vibrant colors\
+                \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
+                \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
+                \ to pause and embrace the tranquility of the natural world"
 
 -- Function to set word colors based on the comparison result
 coloredWordsWidget :: State -> String -> T.Widget EditorName
+coloredWordsWidget ts "" = C.str ""
 coloredWordsWidget ts str = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] (words str)
     where
         colorizeWord (idx, word) =
-            let isMatch = checkWord (concat (E.getEditContents $ ts ^. edit)) idx
-                attrName = if isMatch then defaultAttrName else errorAttrName
-            in C.withAttr attrName $ C.str word
+            let referenceWord = words referenceText !! idx
+                attrName = if referenceWord == word then defaultAttrName else errorAttrName
+            in C.withAttr attrName $ C.str (word ++ " ")
 
 draw :: State -> [T.Widget EditorName]
 draw ts = [img' <=> e <=> wordCount] 
     where
-        e           = E.renderEditor (C.str . concat) False (ts ^. edit)
+        e           = let customRender = coloredWordsWidget ts 
+                      in E.renderEditor (customRender . concat) True (ts ^. editor)
         img'        = C.raw (img ts)
         wordCount   = C.strWrap $ "Word count: " ++ show (ts ^. wordIdx)
 
 updateWordIdx :: State -> State
 updateWordIdx ts =
-  let text = E.getEditContents $ ts ^. edit
+  let text = E.getEditContents $ ts ^. editor
       wordList = words $ concat text  -- Split text into words
   in ts & wordIdx .~ length wordList -- .~ is the lens operator for setting or updating the value viewed by the lens
 
 handleDefaultEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
 handleDefaultEvent e = do
-        zoom edit (E.handleEditorEvent e)
-        C.modify $ updateWordIdx
+        zoom editor (E.handleEditorEvent e)
+        B.modify $ updateWordIdx
 
 handleEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
-handleEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
-handleEvent e@(V.VtyEvent (V.EvKey keyStroke _))           = 
+handleEvent (T.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = B.halt
+handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))           = 
     let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown]
     in if elem keyStroke noOp
         then return ()
@@ -84,7 +87,8 @@ initialState tImage = ST (E.editor EName (Just 1) "") tImage 0 -- (Just 1) means
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr
-    [ (E.editAttr,      V.black `on` V.white)
+    [ 
+      (E.editAttr,      V.black `on` V.white)
     , (successAttrName, V.green `on` V.white)
     , (errorAttrName,   V.red `on` V.white)
     , (defaultAttrName, V.black `on` V.white)
@@ -92,13 +96,13 @@ appAttrMap = A.attrMap V.defAttr
 
 appCursor :: State -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
 appCursor ts cursorLocations
-    | null (E.getEditContents $ ts ^. edit) = Just $ T.CursorLocation (C.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
+    | null (E.getEditContents $ ts ^. editor) = Just $ T.CursorLocation (B.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
     | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
 
 app :: M.App State e EditorName 
 app = 
     M.App { M.appDraw           = draw
-          , M.appChooseCursor   = \_ -> C.showCursorNamed EName
+          , M.appChooseCursor   = \_ -> B.showCursorNamed EName
           , M.appHandleEvent    = handleEvent
           , M.appStartEvent     = return ()
           , M.appAttrMap        = const appAttrMap

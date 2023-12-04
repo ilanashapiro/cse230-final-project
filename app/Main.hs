@@ -32,7 +32,6 @@ data State = ST {
     _numIncorrect :: Int,
     _numTypedWords :: Int,
     _lastCharIsSpace :: Bool,
-    _errorIsCaught :: Bool,
     img :: V.Image
 }
 makeLenses ''State
@@ -97,21 +96,14 @@ updateState :: Bool -> State -> State
 updateState isLastCharSpace ts =
   let text = E.getEditContents $ ts ^. editor
       prevNumIncorrect = ts ^. numIncorrect
-      errorIsAlreadyHandled = ts ^. errorIsCaught
       wordList = words $ concat text  -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
       referenceWord = words referenceText !! (length wordList - 1)
-      wordIsIncorrect = not (isPrefixOf lastTypedWord referenceWord) || (isLastCharSpace && lastTypedWord /= referenceWord)
-      foundNewError = wordIsIncorrect && not errorIsAlreadyHandled
-      -- if the user makes a mistake in a word, that word is considered typed even before the space
-      updatedNumTypedWords = if isLastCharSpace || foundNewError then length wordList else length wordList - 1
-      updatedErrorIsHandled = (not isLastCharSpace) && foundNewError
-      updatedNumIncorrect = if foundNewError then prevNumIncorrect + 1 else prevNumIncorrect
+      wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
   in ts -- .~ is the lens operator for setting or updating the value viewed by the lens
      & lastCharIsSpace .~ isLastCharSpace
-     & errorIsCaught .~ updatedErrorIsHandled
-     & numTypedWords .~ updatedNumTypedWords
-     & numIncorrect .~ if foundNewError then prevNumIncorrect + 1 else prevNumIncorrect
+     & numTypedWords .~ (if isLastCharSpace then length wordList else length wordList - 1)
+     & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
 
 handleDefaultEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
 handleDefaultEvent e isLastCharSpace = do
@@ -130,7 +122,7 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         =
 handleEvent e                                            = return ()
 
 initialState :: V.Image -> State
-initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False False tImage -- (Just 1) means limit 1 line to the editor
+initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False tImage -- (Just 1) means limit 1 line to the editor
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr

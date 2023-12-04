@@ -38,6 +38,7 @@ executable cse230-final-project
                     vty, 
                     directory,
                     MonadRandom,
+                    filepath,
                     base ^>=4.17.2.0
     hs-source-dirs:   app, src
     default-language: Haskell2010
@@ -58,6 +59,7 @@ executable test-image
                     vty, 
                     directory,
                     MonadRandom,
+                    filepath,
                     base ^>=4.17.2.0
     hs-source-dirs:   app, src
     default-language: Haskell2010

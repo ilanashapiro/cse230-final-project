@@ -33,10 +33,17 @@ drawTutor is = [img]
     where
         img = C.raw $ partialImage (imgDocs is) (cur is) (stop is)
 
+incImageState :: ImageState -> ImageState
+incImageState (IS cur stop imgDocs) = IS (cur + 1) stop imgDocs
+
+decImageState :: ImageState -> ImageState
+decImageState is@(IS 0   stop imgDocs) = is 
+decImageState (IS cur stop imgDocs) = IS (cur - 1) stop imgDocs
+
 handleTutorEvent :: T.BrickEvent ImageName e -> T.EventM ImageName ImageState()
 handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl]))   = C.halt
-handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'g') []))          = C.halt
-handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'e') []))          = C.halt
+handleTutorEvent (V.VtyEvent (V.EvKey (KChar 'e') []))          = C.modify decImageState
+handleTutorEvent _                                              = C.modify incImageState
 
 initialState :: ImageDocs -> ImageState 
 initialState imgDocs = IS 0 20 imgDocs

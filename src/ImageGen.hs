@@ -4,6 +4,7 @@
 module ImageGen (ImageDocs, partialImage, getRandomImageDocs) where
 
 import System.Directory (listDirectory)
+import System.FilePath.Posix 
 import Control.Monad.Random 
 import Graphics.Vty as V
 import qualified Data.IMap as V
@@ -72,15 +73,15 @@ partialImage (IDocs LineByLineT2B d) = partialImgLBLT2B d
 getRandomGrowth :: (MonadRandom m) => m GrowthMethod
 getRandomGrowth = do
     let growths     = [LineByLineT2B]
-    idx             <- getRandomR (0, length growths)
+    idx             <- getRandomR (0, length growths - 1)
     return $ growths !! idx 
 
 
 getRandomImageDocs :: (MonadRandom m, MonadIO m) => String -> m ImageDocs
 getRandomImageDocs dirPath = do
     imgFiles    <- liftIO $ listDirectory dirPath
-    idx         <- getRandomR (0, length imgFiles)
-    let path    = imgFiles !! idx 
+    idx         <- getRandomR (0, length imgFiles - 1)
+    let path    = dirPath </> imgFiles !! idx 
     doc         <- liftIO $ docFromPath path
     growth      <- getRandomGrowth
     return $ IDocs growth doc

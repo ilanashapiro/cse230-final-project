@@ -4,6 +4,8 @@
 module Main where
 
 import Data.List (isPrefixOf)
+import Data.Char (isSpace)
+import Text.Printf
 
 import Lens.Micro
 import Lens.Micro.Mtl (zoom)
@@ -25,7 +27,14 @@ import Graphics.Vty (Key(KChar))
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
-data State = ST { _editor :: E.Editor String EditorName, img :: V.Image, _numTypedWords :: Int, _numIncorrect :: Int, _lastCharIsSpace :: Bool }
+data State = ST { 
+    _editor :: E.Editor String EditorName, 
+    _numIncorrect :: Int,
+    _numTypedWords :: Int,
+    _lastCharIsSpace :: Bool,
+    _errorIsCaught :: Bool,
+    img :: V.Image
+}
 makeLenses ''State
 
 successAttrName :: A.AttrName
@@ -48,45 +57,66 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
 
 -- Function to set word colors based on the comparison result
 coloredWordsWidget :: Bool -> String -> T.Widget EditorName
-coloredWordsWidget _ "" = C.str ""
-coloredWordsWidget lastCharIsSpace str = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
-    where
-        inputWords = words str
-        colorizeWord (idx, word) =
-            let referenceWord = words referenceText !! idx
-                attrName = 
-                    -- if we didn't just end the word with a space
-                    -- and we're not on the current word being typed
-                    -- and the word isn't a prefix of the reference (i.e. it could still be correct
-                    -- so we are still in progress)
-                    if not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
-                        then defaultAttrName
-                    else if referenceWord == word 
-                        then successAttrName 
-                    else errorAttrName
-            in C.withAttr attrName $ C.str (word ++ " ")
+coloredWordsWidget lastCharIsSpace str 
+    | null (dropWhile isSpace str)  = C.str ""
+    | otherwise = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
+        where
+            inputWords = words str
+            colorizeWord (idx, word) =
+                let referenceWord = words referenceText !! idx
+                    attrName = 
+                        -- if we didn't just end the word with a space
+                        -- and we're not on the current word being typed
+                        -- and the word isn't a prefix of the reference (i.e. it could still be correct
+                        -- so we are still in progress)
+                        if not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
+                            then defaultAttrName
+                        else if referenceWord == word 
+                            then successAttrName 
+                        else errorAttrName
+                in C.withAttr attrName $ C.str (word ++ " ")
 
 draw :: State -> [T.Widget EditorName]
 draw ts = [img' <=> e <=> wordCount] 
     where
-        e           = E.renderEditor ((coloredWordsWidget (ts ^. lastCharIsSpace)) . concat) True (ts ^. editor)
-        img'        = C.raw (img ts)
-        wordCount   = foldl1 (C.<+>) [
-                        C.withAttr defaultAttrName $ C.str ("Word count: " ++ show (ts ^. numTypedWords)),
-                        C.strWrap $ "Word count: " ++ show (ts ^. numTypedWords) ++ "\tCorrect: "
-                      ]
+        e                 = E.renderEditor ((coloredWordsWidget (ts ^. lastCharIsSpace)) . concat) True (ts ^. editor)
+        img'              = C.raw (img ts)
+        numTotalWords     = ts ^. numTypedWords
+        numIncorrectWords = ts ^. numIncorrect
+        numCorrectWords   = numTotalWords - numIncorrectWords
+        percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
+        spaces            = replicate 4 ' '
+        wordCount         = foldl1 (C.<+>) [
+                                C.withAttr defaultAttrName $ C.str ("Typed Words: " ++ show numTotalWords ++ spaces),
+                                C.withAttr defaultAttrName $ C.str ("Percent Correct: " ++ (printf "%.2g" percentError) ++ "%" ++ spaces),
+                                C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
+                                C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords) 
+                            ]
 
-updatenumTypedWords :: State -> State
-updatenumTypedWords ts =
+updateState :: Bool -> State -> State
+updateState isLastCharSpace ts =
   let text = E.getEditContents $ ts ^. editor
+      prevNumIncorrect = ts ^. numIncorrect
+      errorIsAlreadyHandled = ts ^. errorIsCaught
       wordList = words $ concat text  -- Split text into words
-  in ts & numTypedWords .~ length wordList -- .~ is the lens operator for setting or updating the value viewed by the lens
+      lastTypedWord = if null wordList then "" else last wordList
+      referenceWord = words referenceText !! (length wordList - 1)
+      wordIsIncorrect = not (isPrefixOf lastTypedWord referenceWord) || (isLastCharSpace && lastTypedWord /= referenceWord)
+      foundNewError = wordIsIncorrect && not errorIsAlreadyHandled
+      -- if the user makes a mistake in a word, that word is considered typed even before the space
+      updatedNumTypedWords = if isLastCharSpace || foundNewError then length wordList else length wordList - 1
+      updatedErrorIsHandled = (not isLastCharSpace) && foundNewError
+      updatedNumIncorrect = if foundNewError then prevNumIncorrect + 1 else prevNumIncorrect
+  in ts -- .~ is the lens operator for setting or updating the value viewed by the lens
+     & lastCharIsSpace .~ isLastCharSpace
+     & errorIsCaught .~ updatedErrorIsHandled
+     & numTypedWords .~ updatedNumTypedWords
+     & numIncorrect .~ if foundNewError then prevNumIncorrect + 1 else prevNumIncorrect
 
 handleDefaultEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
 handleDefaultEvent e isLastCharSpace = do
     zoom editor (E.handleEditorEvent e)
-    B.modify (\ts -> ts & lastCharIsSpace .~ isLastCharSpace)
-    B.modify updatenumTypedWords
+    B.modify $ updateState isLastCharSpace
 
 handleEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
 handleEvent (T.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl])) = B.halt
@@ -97,10 +127,10 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         =
     in if elem keyStroke noOp
          then return ()
        else handleDefaultEvent e False
-handleEvent e                                            = handleDefaultEvent e False
+handleEvent e                                            = return ()
 
 initialState :: V.Image -> State
-initialState tImage = ST (E.editor EName (Just 1) "") tImage 0 0 False -- (Just 1) means limit 1 line to the editor
+initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False False tImage -- (Just 1) means limit 1 line to the editor
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr

@@ -55,6 +55,10 @@ coloredWordsWidget lastCharIsSpace str = foldl1 (C.<+>) $ map colorizeWord $ zip
         colorizeWord (idx, word) =
             let referenceWord = words referenceText !! idx
                 attrName = 
+                    -- if we didn't just end the word with a space
+                    -- and we're not on the current word being typed
+                    -- and the word isn't a prefix of the reference (i.e. it could still be correct
+                    -- so we are still in progress)
                     if not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
                         then defaultAttrName
                     else if referenceWord == word 

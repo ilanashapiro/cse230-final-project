@@ -25,7 +25,7 @@ import Graphics.Vty (Key(KChar))
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
-data State = ST { _editor :: E.Editor String EditorName, img :: V.Image, _wordIdx :: Int, _numIncorrect :: Int, _lastCharIsSpace :: Bool }
+data State = ST { _editor :: E.Editor String EditorName, img :: V.Image, _numTypedWords :: Int, _numIncorrect :: Int, _lastCharIsSpace :: Bool }
 makeLenses ''State
 
 successAttrName :: A.AttrName
@@ -71,26 +71,29 @@ draw ts = [img' <=> e <=> wordCount]
     where
         e           = E.renderEditor ((coloredWordsWidget (ts ^. lastCharIsSpace)) . concat) True (ts ^. editor)
         img'        = C.raw (img ts)
-        wordCount   = C.strWrap $ "Word count: " ++ show (ts ^. wordIdx)
+        wordCount   = foldl1 (C.<+>) [
+                        C.withAttr defaultAttrName $ C.str ("Word count: " ++ show (ts ^. numTypedWords)),
+                        C.strWrap $ "Word count: " ++ show (ts ^. numTypedWords) ++ "\tCorrect: "
+                      ]
 
-updateWordIdx :: State -> State
-updateWordIdx ts =
+updatenumTypedWords :: State -> State
+updatenumTypedWords ts =
   let text = E.getEditContents $ ts ^. editor
       wordList = words $ concat text  -- Split text into words
-  in ts & wordIdx .~ length wordList -- .~ is the lens operator for setting or updating the value viewed by the lens
+  in ts & numTypedWords .~ length wordList -- .~ is the lens operator for setting or updating the value viewed by the lens
 
 handleDefaultEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
 handleDefaultEvent e isLastCharSpace = do
     zoom editor (E.handleEditorEvent e)
     B.modify (\ts -> ts & lastCharIsSpace .~ isLastCharSpace)
-    B.modify updateWordIdx
+    B.modify updatenumTypedWords
 
 handleEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
 handleEvent (T.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl])) = B.halt
 handleEvent e@(T.VtyEvent (V.EvKey (KChar ' ') _))       = do
     handleDefaultEvent e True
 handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = 
-    let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown]
+    let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown, V.KBackTab]
     in if elem keyStroke noOp
          then return ()
        else handleDefaultEvent e False

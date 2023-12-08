@@ -30,13 +30,13 @@ import Graphics.Vty (Key(KChar))
 data EditorName = EName deriving (Eq, Ord, Show)
 
 data State = ST { 
-    _editor :: E.Editor String EditorName, 
-    _numIncorrect :: Int,
-    _numTypedWords :: Int,
-    _lastCharIsSpace :: Bool,
-    _startTimestamp :: Maybe UTCTime,
-    _currTimestamp :: Maybe UTCTime,
-    img :: V.Image
+  _editor :: E.Editor String EditorName, 
+  _numIncorrect :: Int,
+  _numTypedWords :: Int,
+  _lastCharIsSpace :: Bool,
+  _startTimestamp :: Maybe UTCTime,
+  _currTimestamp :: Maybe UTCTime,
+  img :: V.Image
 }
 makeLenses ''State
 
@@ -60,41 +60,41 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
 
 coloredWordsWidget :: Bool -> String -> T.Widget EditorName
 coloredWordsWidget lastCharIsSpace str 
-    | null (dropWhile isSpace str)  = C.str ""
-    | otherwise = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
-        where
-            inputWords = words str
-            colorizeWord (idx, word) =
-                let referenceWord = words referenceText !! idx
-                    attrName  
-                      -- if we didn't just end the word with a space
-                      -- and we're not on the current word being typed
-                      -- and the word isn't a prefix of the reference (i.e. it could still be correct
-                      -- so we are still in progress)
-                      | not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
-                          = defaultAttrName
-                      | referenceWord == word 
-                          = successAttrName 
-                      | otherwise = errorAttrName
-                in C.withAttr attrName $ C.str (word ++ " ")
+  | null (dropWhile isSpace str)  = C.str ""
+  | otherwise = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
+    where
+      inputWords = words str
+      colorizeWord (idx, word) =
+          let referenceWord = words referenceText !! idx
+              -- if we didn't just end the word with a space
+              -- and we're not on the current word being typed
+              -- and the word isn't a prefix of the reference (i.e. it could still be correct
+              -- so we are still in progress)
+              attrName  
+                | not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
+                    = defaultAttrName
+                | referenceWord == word 
+                    = successAttrName 
+                | otherwise = errorAttrName
+          in C.withAttr attrName $ C.str (word ++ " ")
 
 draw :: State -> [T.Widget EditorName]
 draw st = [img' <=> e <=> wordCount] 
-    where
-        e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
-        img'              = C.raw (img st)
-        numTotalWords     = st ^. numTypedWords
-        numIncorrectWords = st ^. numIncorrect
-        numCorrectWords   = numTotalWords - numIncorrectWords
-        percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
-        spaces            = replicate 4 ' '
-        wordCount         = foldl1 (C.<+>) [
-                              C.withAttr defaultAttrName $ C.str ("Typed Words: " ++ show numTotalWords ++ spaces),
-                              C.withAttr defaultAttrName $ C.str ("WPM: " ++ printf "%.2g" (wordsPerMin st)  ++ spaces),
-                              C.withAttr defaultAttrName $ C.str ("Accuracy: " ++ printf "%.2g" percentError ++ "%" ++ spaces),
-                              C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
-                              C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords) 
-                            ]
+  where
+      e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
+      img'              = C.raw (img st)
+      numTotalWords     = st ^. numTypedWords
+      numIncorrectWords = st ^. numIncorrect
+      numCorrectWords   = numTotalWords - numIncorrectWords
+      percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
+      spaces            = replicate 4 ' '
+      wordCount         = foldl1 (C.<+>) [
+                            C.withAttr defaultAttrName $ C.str ("Typed Words: " ++ show numTotalWords ++ spaces),
+                            C.withAttr defaultAttrName $ C.str ("WPM: " ++ printf "%.2g" (wordsPerMin st)  ++ spaces),
+                            C.withAttr defaultAttrName $ C.str ("Accuracy: " ++ printf "%.2g" percentError ++ "%" ++ spaces),
+                            C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
+                            C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords) 
+                          ]
 
 updateState :: Bool -> UTCTime -> State -> State
 updateState isLastCharSpace currTime st =
@@ -135,11 +135,11 @@ initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False Nothing Nothing 
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr
-    [ (E.editAttr,      V.withForeColor V.defAttr V.black)
-    , (successAttrName, V.withForeColor V.defAttr V.green)
-    , (errorAttrName,   V.withForeColor V.defAttr V.red)
-    , (defaultAttrName, V.withForeColor V.defAttr V.black)
-    ]
+  [ (E.editAttr,      V.withForeColor V.defAttr V.black)
+  , (successAttrName, V.withForeColor V.defAttr V.green)
+  , (errorAttrName,   V.withForeColor V.defAttr V.red)
+  , (defaultAttrName, V.withForeColor V.defAttr V.black)
+  ]
 
 wordsPerMin :: State -> Double
 wordsPerMin st = 
@@ -159,28 +159,28 @@ secondsToNow st =
 
 appCursor :: State -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
 appCursor st cursorLocations
-    | null (E.getEditContents $ st ^. editor) = Just $ T.CursorLocation (B.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
-    | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
+  | null (E.getEditContents $ st ^. editor) = Just $ T.CursorLocation (B.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
+  | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
 
 app :: M.App State e EditorName 
 app = 
-    M.App { M.appDraw           = draw
-          , M.appChooseCursor   = \_ -> B.showCursorNamed EName
-          , M.appHandleEvent    = handleEvent
-          , M.appStartEvent     = return ()
-          , M.appAttrMap        = const appAttrMap
-    }
+  M.App { M.appDraw           = draw
+        , M.appChooseCursor   = \_ -> B.showCursorNamed EName
+        , M.appHandleEvent    = handleEvent
+        , M.appStartEvent     = return ()
+        , M.appAttrMap        = const appAttrMap
+  }
 
 asciiImg :: String -> IO V.Image
 asciiImg path = do
-    contents        <- readFile path
-    let raw_lines   = lines contents
-    let attr        = V.Attr V.Default V.Default V.Default V.Default
-    let imgs        = map (V.string attr) raw_lines 
-    return (V.vertCat imgs)
+  contents        <- readFile path
+  let raw_lines   = lines contents
+  let attr        = V.Attr V.Default V.Default V.Default V.Default
+  let imgs        = map (V.string attr) raw_lines 
+  return (V.vertCat imgs)
 
 main :: IO ()
 main = do
-    bison   <- asciiImg "art/bison.txt" 
-    st      <- M.defaultMain app (initialState bison)
-    return ()
+  bison   <- asciiImg "art/bison.txt" 
+  st      <- M.defaultMain app (initialState bison)
+  return ()

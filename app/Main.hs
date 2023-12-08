@@ -6,13 +6,15 @@ module Main where
 import Data.List (isPrefixOf)
 import Data.Char (isSpace)
 import Text.Printf
+import Data.Time 
+import Control.Monad.IO.Class (liftIO)
+import Data.Maybe             (fromMaybe)
 
 import Lens.Micro
 import Lens.Micro.Mtl (zoom)
 import Lens.Micro.TH ( makeLenses )
 import qualified Graphics.Vty as V
 
---import Lens.Micro.Mtl
 import qualified Brick.Types as T
 import qualified Brick.Main as M
 import qualified Brick.Widgets.Core as C
@@ -32,6 +34,8 @@ data State = ST {
     _numIncorrect :: Int,
     _numTypedWords :: Int,
     _lastCharIsSpace :: Bool,
+    _startTimestamp :: Maybe UTCTime,
+    _currTimestamp :: Maybe UTCTime,
     img :: V.Image
 }
 makeLenses ''State
@@ -54,7 +58,6 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
                 \ to pause and embrace the tranquility of the natural world"
 
--- Function to set word colors based on the comparison result
 coloredWordsWidget :: Bool -> String -> T.Widget EditorName
 coloredWordsWidget lastCharIsSpace str 
     | null (dropWhile isSpace str)  = C.str ""
@@ -63,66 +66,72 @@ coloredWordsWidget lastCharIsSpace str
             inputWords = words str
             colorizeWord (idx, word) =
                 let referenceWord = words referenceText !! idx
-                    attrName = 
-                        -- if we didn't just end the word with a space
-                        -- and we're not on the current word being typed
-                        -- and the word isn't a prefix of the reference (i.e. it could still be correct
-                        -- so we are still in progress)
-                        if not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
-                            then defaultAttrName
-                        else if referenceWord == word 
-                            then successAttrName 
-                        else errorAttrName
+                    attrName  
+                      -- if we didn't just end the word with a space
+                      -- and we're not on the current word being typed
+                      -- and the word isn't a prefix of the reference (i.e. it could still be correct
+                      -- so we are still in progress)
+                      | not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
+                          = defaultAttrName
+                      | referenceWord == word 
+                          = successAttrName 
+                      | otherwise = errorAttrName
                 in C.withAttr attrName $ C.str (word ++ " ")
 
 draw :: State -> [T.Widget EditorName]
-draw ts = [img' <=> e <=> wordCount] 
+draw st = [img' <=> e <=> wordCount] 
     where
-        e                 = E.renderEditor ((coloredWordsWidget (ts ^. lastCharIsSpace)) . concat) True (ts ^. editor)
-        img'              = C.raw (img ts)
-        numTotalWords     = ts ^. numTypedWords
-        numIncorrectWords = ts ^. numIncorrect
+        e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
+        img'              = C.raw (img st)
+        numTotalWords     = st ^. numTypedWords
+        numIncorrectWords = st ^. numIncorrect
         numCorrectWords   = numTotalWords - numIncorrectWords
         percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
         spaces            = replicate 4 ' '
         wordCount         = foldl1 (C.<+>) [
-                                C.withAttr defaultAttrName $ C.str ("Typed Words: " ++ show numTotalWords ++ spaces),
-                                C.withAttr defaultAttrName $ C.str ("Percent Correct: " ++ (printf "%.2g" percentError) ++ "%" ++ spaces),
-                                C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
-                                C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords) 
+                              C.withAttr defaultAttrName $ C.str ("Typed Words: " ++ show numTotalWords ++ spaces),
+                              C.withAttr defaultAttrName $ C.str ("WPM: " ++ printf "%.2g" (wordsPerMin st)  ++ spaces),
+                              C.withAttr defaultAttrName $ C.str ("Accuracy: " ++ printf "%.2g" percentError ++ "%" ++ spaces),
+                              C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
+                              C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords) 
                             ]
 
-updateState :: Bool -> State -> State
-updateState isLastCharSpace ts =
-  let text = E.getEditContents $ ts ^. editor
-      prevNumIncorrect = ts ^. numIncorrect
-      wordList = words $ concat text  -- Split text into words
+updateState :: Bool -> UTCTime -> State -> State
+updateState isLastCharSpace currTime st =
+  let text = E.getEditContents $ st ^. editor
+      prevNumIncorrect = st ^. numIncorrect
+      wordList = words $ concat text -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
       referenceWord = words referenceText !! (length wordList - 1)
       wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
-  in ts -- .~ is the lens operator for setting or updating the value viewed by the lens
+      storedStartTime = st ^. startTimestamp
+      startTime = if storedStartTime == Nothing then Just currTime else storedStartTime
+      storedCurrTime = st ^. currTimestamp
+      updatedCurrTime = if isLastCharSpace then (Just currTime) else storedCurrTime -- only update currTime at each new word
+  in st -- .~ is the lens operator for setting or updating the value viewed by the lens
      & lastCharIsSpace .~ isLastCharSpace
+     & startTimestamp .~ startTime
+     & currTimestamp .~ updatedCurrTime
      & numTypedWords .~ (if isLastCharSpace then length wordList else length wordList - 1)
      & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
 
-handleDefaultEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
-handleDefaultEvent e isLastCharSpace = do
-    zoom editor (E.handleEditorEvent e)
-    B.modify $ updateState isLastCharSpace
+handleKeystrokeEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
+handleKeystrokeEvent e isLastCharSpace = do
+  zoom editor (E.handleEditorEvent e)
+  currTime <- liftIO getCurrentTime
+  B.modify $ updateState isLastCharSpace currTime
 
 handleEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
 handleEvent (T.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl])) = B.halt
-handleEvent e@(T.VtyEvent (V.EvKey (KChar ' ') _))       = do
-    handleDefaultEvent e True
 handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = 
-    let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown, V.KBackTab]
-    in if elem keyStroke noOp
-         then return ()
-       else handleDefaultEvent e False
+  let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown, V.KBackTab]
+  in if keyStroke `elem` noOp
+        then return ()
+      else handleKeystrokeEvent e (keyStroke == KChar ' ')
 handleEvent e                                            = return ()
 
 initialState :: V.Image -> State
-initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False tImage -- (Just 1) means limit 1 line to the editor
+initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False Nothing Nothing tImage -- (Just 1) means limit 1 line to the editor
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr
@@ -132,9 +141,25 @@ appAttrMap = A.attrMap V.defAttr
     , (defaultAttrName, V.withForeColor V.defAttr V.black)
     ]
 
+wordsPerMin :: State -> Double
+wordsPerMin st = 
+  let totalWords = st ^. numTypedWords
+      mins = secondsToNow st / 60
+      wpm = fromIntegral totalWords / mins
+  -- NaN before the user begins typing, isNegativeZero on the first word due to some floating point precision stuff
+  in if isNaN wpm || isNegativeZero wpm then 0.0 else wpm
+    
+
+secondsToNow :: State -> Double
+secondsToNow st = 
+  let defaultTime = UTCTime (ModifiedJulianDay 0) 0
+      startTime = fromMaybe defaultTime (st ^. startTimestamp)
+      currTime = fromMaybe defaultTime (st ^. currTimestamp)
+  in realToFrac $ diffUTCTime currTime startTime
+
 appCursor :: State -> [T.CursorLocation EditorName] -> Maybe (T.CursorLocation EditorName)
-appCursor ts cursorLocations
-    | null (E.getEditContents $ ts ^. editor) = Just $ T.CursorLocation (B.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
+appCursor st cursorLocations
+    | null (E.getEditContents $ st ^. editor) = Just $ T.CursorLocation (B.Location (0, 0)) (Just EName) True -- if the editor is empty, place the cursor at the top-left corner
     | otherwise = Nothing -- otherwise, do not place a specific cursor and rely on Brick's default behavior
 
 app :: M.App State e EditorName 

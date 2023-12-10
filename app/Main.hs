@@ -26,6 +26,7 @@ import Brick.Util (on)
 import Control.Exception (handle)
 import qualified Brick as B
 import Graphics.Vty (Key(KChar))
+import ImageGen (getRandomImageDocs, ImageDocs, partialImage)
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
@@ -36,7 +37,7 @@ data State = ST {
   _lastCharIsSpace :: Bool,
   _startTimestamp :: Maybe UTCTime,
   _currTimestamp :: Maybe UTCTime,
-  img :: V.Image
+  imgDocs :: ImageDocs 
 }
 makeLenses ''State
 
@@ -57,6 +58,7 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
                 \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
                 \ to pause and embrace the tranquility of the natural world"
+
 
 coloredWordsWidget :: Bool -> String -> T.Widget EditorName
 coloredWordsWidget lastCharIsSpace str 
@@ -82,10 +84,10 @@ draw :: State -> [T.Widget EditorName]
 draw st = [img' <=> e <=> wordCount] 
   where
       e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
-      img'              = C.raw (img st)
       numTotalWords     = st ^. numTypedWords
       numIncorrectWords = st ^. numIncorrect
       numCorrectWords   = numTotalWords - numIncorrectWords
+      img'              = C.raw (partialImage (imgDocs st) numCorrectWords (length $ words referenceText))
       percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
       spaces            = replicate 4 ' '
       wordCount         = foldl1 (C.<+>) [
@@ -130,8 +132,15 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         =
       else handleKeystrokeEvent e (keyStroke == KChar ' ')
 handleEvent e                                            = return ()
 
-initialState :: V.Image -> State
-initialState tImage = ST (E.editor EName (Just 1) "") 0 0 False Nothing Nothing tImage -- (Just 1) means limit 1 line to the editor
+initialState :: ImageDocs -> State
+initialState iDocs = ST e nInc nTyped lSpace startTime curTime iDocs
+  where
+    e         = E.editor EName (Just 1) ""
+    nInc      = 0
+    nTyped    = 0
+    lSpace    = False
+    startTime = Nothing
+    curTime   = Nothing
 
 appAttrMap :: A.AttrMap
 appAttrMap = A.attrMap V.defAttr
@@ -181,6 +190,6 @@ asciiImg path = do
 
 main :: IO ()
 main = do
-  bison   <- asciiImg "art/bison.txt" 
-  st      <- M.defaultMain app (initialState bison)
+  iDocs   <- getRandomImageDocs "art"
+  st      <- M.defaultMain app (initialState iDocs)
   return ()

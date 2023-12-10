@@ -125,11 +125,13 @@ handleKeystrokeEvent e isLastCharSpace = do
 
 handleEvent :: T.BrickEvent EditorName e -> T.EventM EditorName State ()
 handleEvent (T.VtyEvent (V.EvKey (KChar 'c') [V.MCtrl])) = B.halt
-handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = 
+handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = do
   let noOp = [V.KEnter, V.KBS, V.KLeft, V.KRight, V.KUp, V.KDown, V.KBackTab]
-  in if keyStroke `elem` noOp
-        then return ()
-      else handleKeystrokeEvent e (keyStroke == KChar ' ')
+      currCharIsSpace = keyStroke == KChar ' '
+  st <- B.get
+  if keyStroke `elem` noOp || st ^. lastCharIsSpace && currCharIsSpace -- we don't want the user to have consecutive spaces
+    then return ()
+  else handleKeystrokeEvent e currCharIsSpace
 handleEvent e                                            = return ()
 
 initialState :: ImageDocs -> State

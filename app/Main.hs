@@ -28,6 +28,8 @@ import Control.Exception (handle)
 import qualified Brick as B
 import Graphics.Vty (Key(KChar))
 import ImageGen (getRandomImageDocs, ImageDocs, partialImage)
+import WordAnalysis (getTopThree)
+import qualified Brick.Widgets.List as B
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
@@ -64,9 +66,8 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
                 \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
                 \ to pause and embrace the tranquility of the natural world"
--- referenceText = "hello there hi"
 
--- widget for showing the reference text so it fits in the window
+-- widget for showing the reference text. wraps so it fits in the window
 refTextWidget :: String -> B.Widget EditorName
 refTextWidget reftxt = B.strWrap reftxt
 
@@ -98,17 +99,16 @@ gameOverScreen =
           , B.str "Press 'ctrl c' to quit."
           ]
 
-showStats :: String -> B.Widget EditorName
-showStats acc = B.str ("Your accuracy: " ++ acc)
-
+showStats :: String -> Map.Map String Int -> B.Widget EditorName
+showStats acc m = vBox (B.str ("Your accuracy: " ++ acc) : B.str "Your most missed words: " : map B.str (getTopThree m))
 
 draw :: State -> [T.Widget EditorName]
-draw st = if gover then [intro <=> img' <=> (showStats accuracy) <=> gameOverScreen] else [img' <=> reftext <=> e <=> wordCount]
+draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> reftext <=> e <=> wordCount]
   where
       e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
       numTotalWords     = st ^. numTypedWords
       numIncorrectWords = st ^. numIncorrect
-      -- wwList            = st ^. wrongWordList
+      wwList            = st ^. wrongWordList
       numCorrectWords   = numTotalWords - numIncorrectWords
       img'              = C.raw (partialImage (imgDocs st) numCorrectWords (length $ words referenceText))
       percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
@@ -119,12 +119,11 @@ draw st = if gover then [intro <=> img' <=> (showStats accuracy) <=> gameOverScr
                             C.withAttr defaultAttrName $ C.str ("Accuracy: " ++ printf "%.2g" percentError ++ "%" ++ spaces),
                             C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
                             C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords)
-                            -- C.withAttr errorAttrName   $ C.str ("\nWrong Word List: " ++ show wwList)
                           ]
       reftext           = C.withAttr refAttrName (refTextWidget referenceText) -- shows the reference text in the window
-      gover             = st ^. gameover -- shows the game over page if we have 
+      gover             = st ^. gameover -- shows the game over page if we have reached the end of the reference text
       intro             = C.str "Your final image:\n"
-      accuracy          = printf "%.2g" percentError
+      accuracy          = printf "%.2g" percentError ++ "%"
 
 updateState :: Bool -> UTCTime -> State -> State
 updateState isLastCharSpace currTime st =

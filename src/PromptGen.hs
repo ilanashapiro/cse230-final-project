@@ -1,13 +1,30 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
-import Control.Monad.Random (fromList)
+import Control.Monad.IO.Class ( MonadIO(..) )
+import Control.Monad.Random ( fromList, MonadRandom )
+import Control.Monad.State ( MonadState(get), evalStateT )
+import Control.Monad.Trans.State ()
+
 import Data.Char (toLower, toUpper)
 import qualified Data.Map as M
 import qualified Data.List as L
 
+-- import Test.QuickCheck ()
+-- import Lipsum.Gen (sizedParagraph)
+
+---------------------------------------------------------------------------------------------------
+-- | Types
+---------------------------------------------------------------------------------------------------
+type ST = [Char]
+type MonadPrompt m = (MonadState ST m, MonadIO m, MonadRandom m)
+
 ---------------------------------------------------------------------------------------------------
 -- | Constants
 ---------------------------------------------------------------------------------------------------
+-- English letter frequencies based on
+-- https://pi.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html
 letterFreqs :: M.Map Char Rational
 letterFreqs = M.fromList
     [ ('E', 12.02)
@@ -38,21 +55,27 @@ letterFreqs = M.fromList
     , ('Z', 0.07)
     ]
 
+-- default frequency for map lookup
+defFreq :: Rational
+defFreq = 0.01
+
+lowercaseLetters :: [Char]
+lowercaseLetters = ['a'..'z']
+
 homeRowLetters :: [Char]
-homeRowLetters = ['a','s','d','f','g','h','j','k','l']
+homeRowLetters = "asdfghjkl;"
 
 ---------------------------------------------------------------------------------------------------
 -- | Helper Functions
 ---------------------------------------------------------------------------------------------------
-chooseLen :: [Int] -> (Float -> Float) -> IO Int
+chooseLen :: (MonadPrompt m) => [Int] -> (Float -> Float) -> m Int
 chooseLen range f = do
-    let freqMap = fmap (toRational . f . fromIntegral) range 
-    l <- fromList $ zip range freqMap
-    return l 
+    let freqMap = fmap (toRational . f . fromIntegral) range
+    fromList $ zip range freqMap
 
-sampleMany :: IO a -> Int -> IO [a]
-sampleMany sampler = go 
-    where 
+sampleMany :: (MonadPrompt m) => m a -> Int -> m [a]
+sampleMany sampler = go
+    where
         go 0 = return []
         go n = do
             c  <- sampler
@@ -64,54 +87,54 @@ sampleMany sampler = go
 --   based on frequency distribution approximations in
 --   https://math.wvu.edu/~hdiamond/Math222F17/Sigurd_et_al-2004-Studia_Linguistica.pdf 
 ---------------------------------------------------------------------------------------------------
-chooseWordLen :: IO Int
+chooseWordLen :: (MonadPrompt m) => m Int
 chooseWordLen = chooseLen lengths freqs
     where
-        lengths = [3..12] 
+        lengths = [3..12]
         freqs l = 11.74 * l**3 * 0.4**l   -- 21.2 * 0.73 ** (l - 3)
 
-chooseSentLen :: IO Int
+chooseSentLen :: (MonadPrompt m) => m Int
 chooseSentLen = chooseLen lengths freqs
     where
         lengths = [1..50]
         freqs l = 1.1 * l * 0.9**l
 
 ---------------------------------------------------------------------------------------------------
--- | Sample Letters
+-- | Sample One or Multiple Letters
 ---------------------------------------------------------------------------------------------------
-sampleLetter :: [Char] -> IO Char
-sampleLetter cs = do
-    let letters = [(toLower c, M.findWithDefault 0 (toUpper c) letterFreqs) | c <- cs] 
-    c <- fromList letters
-    return c       
+sampleLetter :: (MonadPrompt m) => m Char
+sampleLetter = do
+    cs <- Control.Monad.State.get
+    let letters = [(toLower c, M.findWithDefault defFreq (toUpper c) letterFreqs) | c <- cs]
+    fromList letters
 
-sampleLetterAny :: IO Char
-sampleLetterAny = sampleLetter ['a'..'z']
-
-sampleLetters :: Int -> IO String
-sampleLetters = sampleMany (sampleLetter homeRowLetters)
+sampleLetters :: (MonadPrompt m) => Int -> m String
+sampleLetters = sampleMany sampleLetter
 
 ---------------------------------------------------------------------------------------------------
 -- | Construct Words and Sentences
 ---------------------------------------------------------------------------------------------------
-makeRandWord :: IO String
-makeRandWord = do 
+makeRandWord :: (MonadPrompt m) => m String
+makeRandWord = do
     l <- chooseWordLen
     sampleLetters l
 
-sampleWords :: Int -> IO [String]
+sampleWords :: (MonadPrompt m) => Int -> m [String]
 sampleWords = sampleMany makeRandWord
 
-makeRandSent :: IO String
+makeRandSent :: (MonadPrompt m) => m String
 makeRandSent = do
     l  <- chooseSentLen
     ws <- sampleWords l
     let sent = unwords ws ++ "."
     let c:cs = sent
-    return $ (toUpper c) : cs
+    return $ toUpper c : cs
+
+makeSentFromLetters :: IO String
+makeSentFromLetters = do evalStateT makeRandSent homeRowLetters
 
 main :: IO ()
-main = do 
-    s <- makeRandSent
-    putStrLn s
-    
+main = do
+    -- s <- generate (sizedParagraph 10)    -- using lipsum
+    s <- makeSentFromLetters
+    print s

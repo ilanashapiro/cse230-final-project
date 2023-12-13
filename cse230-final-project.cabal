@@ -72,13 +72,17 @@ executable test-image
 
 
 executable test-prompt
-    main-is:          PromptGen.hs
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
+    main-is:        PromptGen.hs
+    other-modules:  Lipsum.Gen,
+                    Lipsum.Gen.Finals,
+                    Lipsum.Gen.Initials,
+                    Lipsum.Gen.Intermediates
     build-depends:  MonadRandom,
                     base ^>=4.17.2.0,
                     containers,
-                    text
-    hs-source-dirs:   src
+                    text,
+                    QuickCheck,
+                    transformers,
+                    mtl
+    hs-source-dirs:   src, .
     default-language: Haskell2010

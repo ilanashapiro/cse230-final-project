@@ -1,2 +1,5 @@
 # Build Directory
 dist-newstyle
+
+# VS Code
+.vscode

@@ -67,6 +67,8 @@ referenceText = "The sun dipped low on the horizon, casting a warm hue across th
                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
                 \ to pause and embrace the tranquility of the natural world"
 
+-- referenceText = "hi hello bye"
+
 -- widget for showing the reference text. wraps so it fits in the window
 refTextWidget :: String -> B.Widget EditorName
 refTextWidget reftxt = B.strWrap reftxt
@@ -83,7 +85,7 @@ coloredWordsWidget lastCharIsSpace str
               -- and we're not on the current word being typed
               -- and the word isn't a prefix of the reference (i.e. it could still be correct
               -- so we are still in progress)
-              -- crashes at the end of the text
+              -- note: crashes at the end of the text
               attrName
                 | not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
                     = defaultAttrName
@@ -164,7 +166,7 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = do
   st <- B.get
   if keyStroke `elem` noOp || st ^. lastCharIsSpace && currCharIsSpace -- we don't want the user to have consecutive spaces
     then return ()
-  else handleKeystrokeEvent e currCharIsSpace
+  else if st ^. gameover then return () else handleKeystrokeEvent e currCharIsSpace -- stops a crash if the user types an extra word 
 handleEvent e                                            = return ()
 
 initialState :: ImageDocs -> State

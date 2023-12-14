@@ -123,7 +123,7 @@ showStats :: String -> Map.Map String Int -> B.Widget EditorName
 showStats acc m = vBox (B.str ("Your accuracy: " ++ acc) : B.str "Your most missed words: " : map B.str (getTopThree m))
 
 draw :: State -> [T.Widget EditorName]
-draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> e <=> wordCount <=> re]
+draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> e <=> re <=> wordCount]
   where
       e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
       numTotalWords     = st ^. numTypedWords

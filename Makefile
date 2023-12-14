@@ -4,3 +4,6 @@ run:
 
 run-image:
 	cabal run --ghc-options=-threaded test-image
+
+test: 
+	cabal run --ghc-options=-threaded test

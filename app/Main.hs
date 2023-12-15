@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-} -- For using lenses.
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
+{-# HLINT ignore "Use zipWith" #-}
 module Main where
 
 import Data.List (isPrefixOf)
@@ -77,13 +78,13 @@ refAttrName = A.attrName "refAttrName"
 --                  \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers."
 
 coloredWordsWidget :: Bool -> String -> String -> T.Widget EditorName
-coloredWordsWidget lastCharIsSpace str reftext
+coloredWordsWidget lastCharIsSpace reftxt str 
   | null (dropWhile isSpace str)  = C.str ""
   | otherwise = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
     where
       inputWords = words str
       colorizeWord (idx, word) =
-          let referenceWord = words reftext !! idx
+          let referenceWord = words reftxt !! idx
               -- if we didn't just end the word with a space
               -- and we're not on the current word being typed
               -- and the word isn't a prefix of the reference (i.e. it could still be correct
@@ -161,7 +162,7 @@ updateState isLastCharSpace currTime st =
       wordList = words $ concat text -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
       referenceWord = words referenceText !! (length wordList - 1)
-      haveNextWord  = length (words referenceText) > length wordList + (previewWidth - 1)
+      haveNextWord = length (words referenceText) > length wordList + (previewWidth - 1)
       nextWord = if haveNextWord then words referenceText !! (length wordList + (previewWidth - 1)) else "✨"
       wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
       storedStartTime = st ^. startTimestamp
@@ -180,8 +181,10 @@ updateState isLastCharSpace currTime st =
      & currTimestamp .~ updatedCurrTime
      & numTypedWords .~ newNumTypedWords
      & wrongWordList %~ (\wlist -> if wordIsIncorrect then updateMap referenceWord wlist else wlist)
+     & refeditor .~ newRefEditor
      & gameover .~ (newNumTypedWords == length (words referenceText))
      & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
+    --  & reftxt .~ referenceText
 
 handleKeystrokeEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
 handleKeystrokeEvent e isLastCharSpace = do

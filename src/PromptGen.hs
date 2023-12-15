@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+
 module PromptGen (makePrompt) where
 
 import Control.Monad.IO.Class ( MonadIO(..) )
@@ -139,7 +140,7 @@ makeParagraph = do
     s7 <- makeRandSent
     s8 <- makeRandSent
     s9 <- makeRandSent
-    return $ concat [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]
+    return $ unwords [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]
 
 makePrompt :: [Char] -> IO String
 makePrompt = do evalStateT makeParagraph

@@ -28,14 +28,17 @@ import Control.Exception (handle)
 import qualified Brick as B
 import Graphics.Vty (Key(KChar))
 import ImageGen (getRandomImageDocs, ImageDocs, partialImage)
-import WordAnalysis (getTopThree)
+import WordAnalysis (getTopThree, sortedMostMissedLetters, sortedListMissedWords,)
 import qualified Brick.Widgets.List as B
+import qualified Data.Text.Zipper as TZ
+import qualified Data.Text as TX
 import PromptGen (makePrompt)
 
-data EditorName = EName deriving (Eq, Ord, Show)
+data EditorName = EName | RefEName deriving (Eq, Ord, Show)
 
 data State = ST {
   _editor :: E.Editor String EditorName,
+  _refeditor :: E.Editor String EditorName,
   _numIncorrect :: Int,
   _numTypedWords :: Int,
   _lastCharIsSpace :: Bool,
@@ -69,9 +72,9 @@ refAttrName = A.attrName "refAttrName"
 --                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
 --                 \ to pause and embrace the tranquility of the natural world"
 
--- widget for showing the reference text. wraps so it fits in the window
-refTextWidget :: String -> B.Widget EditorName
-refTextWidget reftxt = B.strWrap reftxt
+-- referenceText = "hi hello bye"
+-- referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
+--                  \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers."
 
 coloredWordsWidget :: Bool -> String -> String -> T.Widget EditorName
 coloredWordsWidget lastCharIsSpace str reftext
@@ -85,13 +88,27 @@ coloredWordsWidget lastCharIsSpace str reftext
               -- and we're not on the current word being typed
               -- and the word isn't a prefix of the reference (i.e. it could still be correct
               -- so we are still in progress)
-              -- crashes at the end of the text
+              -- note: crashes at the end of the text
               attrName
                 | not lastCharIsSpace && (idx == length inputWords - 1) && (isPrefixOf word referenceWord)
                     = defaultAttrName
                 | referenceWord == word
                     = successAttrName
                 | otherwise = errorAttrName
+          in C.withAttr attrName $ C.str (word ++ " ")
+
+refColorsWidget :: Int -> String -> T.Widget EditorName
+refColorsWidget lastTypedWordIdx str
+  | null (dropWhile isSpace str)  = C.str ""
+  | otherwise =
+    foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
+    where
+      inputWords = words str
+      colorizeWord (idx, word) =
+              -- if we're on the current word being typed then highlight it 
+          let attrName
+                | idx == lastTypedWordIdx = refAttrName -- highlight current word
+                | otherwise = defaultAttrName
           in C.withAttr attrName $ C.str (word ++ " ")
 
 -- the widget for showing the game over screen once the user has finished the reference text
@@ -102,10 +119,12 @@ gameOverScreen =
           ]
 
 showStats :: String -> Map.Map String Int -> B.Widget EditorName
-showStats acc m = vBox (B.str ("Your accuracy: " ++ acc) : B.str "Your most missed words: " : map B.str (getTopThree m))
+showStats acc m = vBox
+  ((B.str ("Your accuracy: " ++ acc) : B.str "Your most missed words: " : map B.str (getTopThree m sortedListMissedWords)) ++
+  (B.str "Your most missed letters: " : map (B.txt . TX.singleton) (getTopThree m sortedMostMissedLetters)))
 
 draw :: State -> [T.Widget EditorName]
-draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> reftext <=> e <=> wordCount]
+draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> e <=> re <=> wordCount]
   where
       e                 = E.renderEditor (coloredWordsWidget (st ^. lastCharIsSpace) referenceText . concat) True (st ^. editor)
       numTotalWords     = st ^. numTypedWords
@@ -123,7 +142,13 @@ draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOv
                             C.withAttr successAttrName $ C.str ("Correct: " ++ show numCorrectWords ++ spaces),
                             C.withAttr errorAttrName   $ C.str ("Errors: " ++ show numIncorrectWords)
                           ]
-      reftext           = C.withAttr refAttrName (refTextWidget referenceText) -- shows the reference text in the window
+      text = E.getEditContents $ st ^. editor
+      wordList = words $ concat text
+      lastTypedWordIdx
+        | null wordList = 0
+        | st ^. lastCharIsSpace = length wordList
+        | otherwise = length wordList - 1
+      re                = E.renderEditor (refColorsWidget lastTypedWordIdx . concat) True (st ^. refeditor) -- highlight the current word to type
       gover             = st ^. gameover -- shows the game over page if we have reached the end of the reference text
       intro             = C.str "Your final image:\n"
       accuracy          = printf "%.2g" percentError ++ "%"
@@ -134,7 +159,7 @@ updateState isLastCharSpace currTime st =
       prevNumIncorrect = st ^. numIncorrect
       wordList = words $ concat text -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
-      referenceWord = words (st ^. reftxt) !! (length wordList - 1)
+      referenceWord = words referenceText !! (length wordList - 1)
       wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
       storedStartTime = st ^. startTimestamp
       startTime = if storedStartTime == Nothing then Just currTime else storedStartTime
@@ -144,13 +169,15 @@ updateState isLastCharSpace currTime st =
                               Just count -> Map.insert wword (count + 1) wwmap
                               Nothing    -> Map.insert wword 1 wwmap
       newNumTypedWords = (if isLastCharSpace then length wordList else length wordList - 1)
+      newRefEditor = if isLastCharSpace && haveNextWord then E.applyEdit (TZ.insertMany (" " ++ nextWord)) (st ^. refeditor) else (st ^. refeditor)
+      -- append the new word to the reference text once the user gets to it
   in st -- .~ is the lens operator for setting or updating the value viewed by the lens
      & lastCharIsSpace .~ isLastCharSpace
      & startTimestamp .~ startTime
      & currTimestamp .~ updatedCurrTime
      & numTypedWords .~ newNumTypedWords
      & wrongWordList %~ (\wlist -> if wordIsIncorrect then updateMap referenceWord wlist else wlist)
-     & gameover .~ (newNumTypedWords == length (words (st ^. reftxt)))
+     & gameover .~ (newNumTypedWords == length (words referenceText))
      & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
 
 handleKeystrokeEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
@@ -167,13 +194,17 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = do
   st <- B.get
   if keyStroke `elem` noOp || st ^. lastCharIsSpace && currCharIsSpace -- we don't want the user to have consecutive spaces
     then return ()
-  else handleKeystrokeEvent e currCharIsSpace
+  else if st ^. gameover then return () else handleKeystrokeEvent e currCharIsSpace -- stops a crash if the user types an extra word 
 handleEvent e                                            = return ()
 
-initialState :: ImageDocs -> String -> State
-initialState iDocs reftxt = ST e nInc nTyped lSpace startTime curTime wwlist gameover iDocs reftxt
+previewWidth :: Int
+previewWidth = 5
+
+initialState :: ImageDocs -> State
+initialState iDocs = ST e nInc nTyped lSpace startTime curTime wwlist gameover iDocs
   where
     e         = E.editor EName (Just 1) ""
+    re        = E.editor RefEName (Just 2) (unwords (take previewWidth (words referenceText))) -- start out with 3 words in reference
     nInc      = 0
     nTyped    = 0
     lSpace    = False

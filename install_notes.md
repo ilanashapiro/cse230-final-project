@@ -2,6 +2,9 @@
 To install brick I had to run:
 `cabal install --lib brick`
 
+To install QuickChick:
+`cabal install --lib QuickCheck`
+
 To run the application I had to run:
 `cabal run --ghc-options=-threaded cse230-final-project`
 

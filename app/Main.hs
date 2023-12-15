@@ -184,7 +184,6 @@ updateState isLastCharSpace currTime st =
      & refeditor .~ newRefEditor
      & gameover .~ (newNumTypedWords == length (words referenceText))
      & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
-    --  & reftxt .~ referenceText
 
 handleKeystrokeEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
 handleKeystrokeEvent e isLastCharSpace = do

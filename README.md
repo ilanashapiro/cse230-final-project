@@ -1,6 +1,8 @@
 # Learn to Type with Pretty Pictures
 Kyeling Ong, Kyle Thompson, Savitha Ravi, Ilana Shapiro
 
+![image](image.png)
+
 ## Proposal
 ### Project Description
 We will create a command-line application that helps users learn to type. 

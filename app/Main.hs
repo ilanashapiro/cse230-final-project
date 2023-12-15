@@ -67,15 +67,6 @@ refAttrName :: A.AttrName
 refAttrName = A.attrName "refAttrName"
 
 referenceText :: String
--- referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
---                 \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers.\
---                 \ In the distance, a family of deer grazed peacefully, their graceful movements adding to the serene\
---                 \ symphony of nature. Birds soared overhead, painting the sky with fleeting strokes of vibrant colors\
---                 \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
---                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
---                 \ to pause and embrace the tranquility of the natural world"
-
--- referenceText = "hi hello bye"
 referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
                  \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers."
 

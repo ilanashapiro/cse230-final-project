@@ -30,6 +30,7 @@ import Graphics.Vty (Key(KChar))
 import ImageGen (getRandomImageDocs, ImageDocs, partialImage)
 import WordAnalysis (getTopThree)
 import qualified Brick.Widgets.List as B
+import PromptGen (makePrompt)
 
 data EditorName = EName deriving (Eq, Ord, Show)
 
@@ -42,7 +43,8 @@ data State = ST {
   _currTimestamp :: Maybe UTCTime,
   _wrongWordList :: Map.Map String Int,
   _gameover :: Bool,
-  imgDocs :: ImageDocs
+  imgDocs :: ImageDocs,
+  _reftxt :: String
 }
 makeLenses ''State
 
@@ -58,27 +60,27 @@ defaultAttrName = A.attrName "default"
 refAttrName :: A.AttrName
 refAttrName = A.attrName "refAttrName"
 
-referenceText :: String
-referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
-                \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers.\
-                \ In the distance, a family of deer grazed peacefully, their graceful movements adding to the serene\
-                \ symphony of nature. Birds soared overhead, painting the sky with fleeting strokes of vibrant colors\
-                \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
-                \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
-                \ to pause and embrace the tranquility of the natural world"
+-- referenceText :: String
+-- referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
+--                 \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers.\
+--                 \ In the distance, a family of deer grazed peacefully, their graceful movements adding to the serene\
+--                 \ symphony of nature. Birds soared overhead, painting the sky with fleeting strokes of vibrant colors\
+--                 \ as they headed towards their roosts. The air was filled with a sense of calm, a moment frozen in\
+--                 \ time where worries seemed to dissipate. It was a scene of simple beauty, a sanctuary inviting one\
+--                 \ to pause and embrace the tranquility of the natural world"
 
 -- widget for showing the reference text. wraps so it fits in the window
 refTextWidget :: String -> B.Widget EditorName
 refTextWidget reftxt = B.strWrap reftxt
 
-coloredWordsWidget :: Bool -> String -> T.Widget EditorName
-coloredWordsWidget lastCharIsSpace str
+coloredWordsWidget :: Bool -> String -> String -> T.Widget EditorName
+coloredWordsWidget lastCharIsSpace str reftext
   | null (dropWhile isSpace str)  = C.str ""
   | otherwise = foldl1 (C.<+>) $ map colorizeWord $ zip [0..] inputWords
     where
       inputWords = words str
       colorizeWord (idx, word) =
-          let referenceWord = words referenceText !! idx
+          let referenceWord = words reftext !! idx
               -- if we didn't just end the word with a space
               -- and we're not on the current word being typed
               -- and the word isn't a prefix of the reference (i.e. it could still be correct
@@ -105,10 +107,11 @@ showStats acc m = vBox (B.str ("Your accuracy: " ++ acc) : B.str "Your most miss
 draw :: State -> [T.Widget EditorName]
 draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOverScreen] else [img' <=> reftext <=> e <=> wordCount]
   where
-      e                 = E.renderEditor ((coloredWordsWidget (st ^. lastCharIsSpace)) . concat) True (st ^. editor)
+      e                 = E.renderEditor (coloredWordsWidget (st ^. lastCharIsSpace) referenceText . concat) True (st ^. editor)
       numTotalWords     = st ^. numTypedWords
       numIncorrectWords = st ^. numIncorrect
       wwList            = st ^. wrongWordList
+      referenceText     = st ^. reftxt
       numCorrectWords   = numTotalWords - numIncorrectWords
       img'              = C.raw (partialImage (imgDocs st) numCorrectWords (length $ words referenceText))
       percentError      = if numTotalWords == 0 then 0 else (fromIntegral numCorrectWords) / (fromIntegral numTotalWords) * 100 :: Float
@@ -131,7 +134,7 @@ updateState isLastCharSpace currTime st =
       prevNumIncorrect = st ^. numIncorrect
       wordList = words $ concat text -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
-      referenceWord = words referenceText !! (length wordList - 1)
+      referenceWord = words (st ^. reftxt) !! (length wordList - 1)
       wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
       storedStartTime = st ^. startTimestamp
       startTime = if storedStartTime == Nothing then Just currTime else storedStartTime
@@ -147,7 +150,7 @@ updateState isLastCharSpace currTime st =
      & currTimestamp .~ updatedCurrTime
      & numTypedWords .~ newNumTypedWords
      & wrongWordList %~ (\wlist -> if wordIsIncorrect then updateMap referenceWord wlist else wlist)
-     & gameover .~ (newNumTypedWords == length (words referenceText))
+     & gameover .~ (newNumTypedWords == length (words (st ^. reftxt)))
      & numIncorrect .~ if wordIsIncorrect then prevNumIncorrect + 1 else prevNumIncorrect
 
 handleKeystrokeEvent :: T.BrickEvent EditorName e -> Bool -> T.EventM EditorName State ()
@@ -167,8 +170,8 @@ handleEvent e@(T.VtyEvent (V.EvKey keyStroke _))         = do
   else handleKeystrokeEvent e currCharIsSpace
 handleEvent e                                            = return ()
 
-initialState :: ImageDocs -> State
-initialState iDocs = ST e nInc nTyped lSpace startTime curTime wwlist gameover iDocs
+initialState :: ImageDocs -> String -> State
+initialState iDocs reftxt = ST e nInc nTyped lSpace startTime curTime wwlist gameover iDocs reftxt
   where
     e         = E.editor EName (Just 1) ""
     nInc      = 0
@@ -228,6 +231,7 @@ asciiImg path = do
 
 main :: IO ()
 main = do
+  prompt  <- makePrompt ['a'..'z']
   iDocs   <- getRandomImageDocs "art"
-  st      <- M.defaultMain app (initialState iDocs)
+  st      <- M.defaultMain app (initialState iDocs prompt)
   return ()

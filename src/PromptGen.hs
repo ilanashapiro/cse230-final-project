@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Main where
+module PromptGen (makePrompt) where
 
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.Random ( fromList, MonadRandom )
@@ -11,14 +11,11 @@ import Data.Char (toLower, toUpper)
 import qualified Data.Map as M
 import qualified Data.List as L
 
--- import Test.QuickCheck ()
--- import Lipsum.Gen (sizedParagraph)
-
 ---------------------------------------------------------------------------------------------------
 -- | Types
 ---------------------------------------------------------------------------------------------------
 type ST = [Char]
-type MonadPrompt m = (MonadState ST m, MonadIO m, MonadRandom m)
+type MonadPrompt m = (MonadState ST m, MonadRandom m)
 
 ---------------------------------------------------------------------------------------------------
 -- | Constants
@@ -128,13 +125,21 @@ makeRandSent = do
     ws <- sampleWords l
     let sent = unwords ws ++ "."
     let c:cs = sent
-    return $ toUpper c : cs
+    return (toUpper c : cs)
 
-makeSentFromLetters :: IO String
-makeSentFromLetters = do evalStateT makeRandSent homeRowLetters
+makeParagraph :: (MonadPrompt m) => m String 
+makeParagraph = do
+    s0 <- makeRandSent 
+    s1 <- makeRandSent 
+    s2 <- makeRandSent
+    s3 <- makeRandSent
+    s4 <- makeRandSent
+    s5 <- makeRandSent
+    s6 <- makeRandSent 
+    s7 <- makeRandSent
+    s8 <- makeRandSent
+    s9 <- makeRandSent
+    return $ concat [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]
 
-main :: IO ()
-main = do
-    -- s <- generate (sizedParagraph 10)    -- using lipsum
-    s <- makeSentFromLetters
-    print s
+makePrompt :: [Char] -> IO String
+makePrompt = do evalStateT makeParagraph

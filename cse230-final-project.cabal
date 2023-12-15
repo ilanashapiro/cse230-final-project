@@ -28,6 +28,7 @@ executable cse230-final-project
 
     -- Modules included in this executable, other than Main.
     other-modules: ImageGen,
+                   PromptGen,
                    WordAnalysis
 
     -- LANGUAGE extensions used by modules in this package.
@@ -46,6 +47,8 @@ executable cse230-final-project
                     base ^>=4.17.2.0,
                     containers,
                     QuickCheck,
+                    mtl,
+                    transformers
     hs-source-dirs:   app, src
     default-language: Haskell2010
 
@@ -73,6 +76,19 @@ executable test-image
                     base ^>=4.17.2.0,
                     containers,
                     QuickCheck,
+    hs-source-dirs:   app, src
+    default-language: Haskell2010
+
+
+executable test-prompt
+    main-is:        ShowPrompt.hs
+    other-modules:  PromptGen
+    build-depends:  MonadRandom,
+                    base ^>=4.17.2.0,
+                    containers,
+                    text,
+                    transformers,
+                    mtl
     hs-source-dirs:   app, src
     default-language: Haskell2010
 

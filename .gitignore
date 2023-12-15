@@ -1,2 +1,8 @@
 # Build Directory
 dist-newstyle
+
+# VS Code
+.vscode
+
+# Other Files
+ignore/

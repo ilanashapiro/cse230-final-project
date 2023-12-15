@@ -156,10 +156,13 @@ draw st = if gover then [intro <=> img' <=> showStats accuracy wwList <=> gameOv
 updateState :: Bool -> UTCTime -> State -> State
 updateState isLastCharSpace currTime st =
   let text = E.getEditContents $ st ^. editor
+      referenceText = st ^. reftxt
       prevNumIncorrect = st ^. numIncorrect
       wordList = words $ concat text -- Split text into words
       lastTypedWord = if null wordList then "" else last wordList
       referenceWord = words referenceText !! (length wordList - 1)
+      haveNextWord  = length (words referenceText) > length wordList + (previewWidth - 1)
+      nextWord = if haveNextWord then words referenceText !! (length wordList + (previewWidth - 1)) else "✨"
       wordIsIncorrect = (isLastCharSpace && lastTypedWord /= referenceWord)
       storedStartTime = st ^. startTimestamp
       startTime = if storedStartTime == Nothing then Just currTime else storedStartTime
@@ -200,11 +203,11 @@ handleEvent e                                            = return ()
 previewWidth :: Int
 previewWidth = 5
 
-initialState :: ImageDocs -> State
-initialState iDocs = ST e nInc nTyped lSpace startTime curTime wwlist gameover iDocs
+initialState :: ImageDocs -> String -> State
+initialState iDocs reftxt = ST e re nInc nTyped lSpace startTime curTime wwlist gameover iDocs reftxt
   where
     e         = E.editor EName (Just 1) ""
-    re        = E.editor RefEName (Just 2) (unwords (take previewWidth (words referenceText))) -- start out with 3 words in reference
+    re        = E.editor RefEName (Just 2) (unwords (take previewWidth (words reftxt))) -- start out with 3 words in reference
     nInc      = 0
     nTyped    = 0
     lSpace    = False

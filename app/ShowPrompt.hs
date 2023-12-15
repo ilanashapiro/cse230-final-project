@@ -1,8 +1,21 @@
 module Main where
 
-import PromptGen (makePrompt)
+import RandomPromptGen (makeRandPrompt)
+import BigramPromptGen (makePrompt)
 
 main :: IO ()
 main = do
-    s <- makePrompt ['a' .. 'z']
-    print s
+    print "RANDOM LETTER PROMPT"
+    sRandom <- makeRandPrompt ['a'..'z']
+    print sRandom
+    print ""
+
+    print "SHAKESPEARE STYLE PROMPT"
+    sBigram <- makePrompt "training-text/shakespeare.txt"
+    print sBigram
+    print ""
+    
+    print "HASKELL PROMPT"
+    sBigram <- makePrompt "app/Main.hs" --"src/RandomPromptGen.hs"
+    print sBigram
+    print ""

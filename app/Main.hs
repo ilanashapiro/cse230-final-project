@@ -33,7 +33,9 @@ import WordAnalysis (getTopThree, sortedMostMissedLetters, sortedListMissedWords
 import qualified Brick.Widgets.List as B
 import qualified Data.Text.Zipper as TZ
 import qualified Data.Text as TX
-import PromptGen (makePrompt)
+import BigramPromptGen (makePrompt)
+import RandomPromptGen (makeRandPrompt)
+import System.Environment (getArgs)
 
 data EditorName = EName | RefEName deriving (Eq, Ord, Show)
 
@@ -64,7 +66,7 @@ defaultAttrName = A.attrName "default"
 refAttrName :: A.AttrName
 refAttrName = A.attrName "refAttrName"
 
--- referenceText :: String
+referenceText :: String
 -- referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
 --                 \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers.\
 --                 \ In the distance, a family of deer grazed peacefully, their graceful movements adding to the serene\
@@ -74,8 +76,8 @@ refAttrName = A.attrName "refAttrName"
 --                 \ to pause and embrace the tranquility of the natural world"
 
 -- referenceText = "hi hello bye"
--- referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
---                  \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers."
+referenceText = "The sun dipped low on the horizon, casting a warm hue across the tranquil meadow.\
+                 \ A gentle breeze whispered through the swaying grass, carrying the sweet scent of wildflowers."
 
 coloredWordsWidget :: Bool -> String -> String -> T.Widget EditorName
 coloredWordsWidget lastCharIsSpace reftxt str 
@@ -267,7 +269,18 @@ asciiImg path = do
 
 main :: IO ()
 main = do
-  prompt  <- makePrompt ['a'..'z']
-  iDocs   <- getRandomImageDocs "art"
-  st      <- M.defaultMain app (initialState iDocs prompt)
-  return ()
+  args <- getArgs 
+  if args == ["shakespeare"] then
+    do prompt <- makePrompt "training-text/shakespeare.txt"
+       iDocs  <- getRandomImageDocs "art"
+       st     <- M.defaultMain app (initialState iDocs prompt)
+       return ()
+  else if args == ["random"] then
+    do prompt <- makeRandPrompt ['a'..'z']
+       iDocs  <- getRandomImageDocs "art"
+       st     <- M.defaultMain app (initialState iDocs prompt)
+       return ()
+  else 
+    do iDocs   <- getRandomImageDocs "art"
+       st      <- M.defaultMain app (initialState iDocs referenceText)
+       return ()

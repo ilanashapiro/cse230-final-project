@@ -13,6 +13,7 @@ type MonadPrompt m = (MonadState ST m, MonadRandom m)
 
 -- | Function for creating a list of bigrams
 -- | e.g. [("Colorless", "green"), ("green", "ideas")]
+-- | source: https://stackoverflow.com/questions/33646178/haskell-finding-bigrams-from-an-input-list-of-words
 getBigrams :: [String] -> [(String, String)]
 getBigrams ws = do
     w1 <- init ws
@@ -25,7 +26,7 @@ freqUnigrams = L.foldl' countElems M.empty
     where
         countElems mp k = M.insertWith (+) k 1 mp
 
--- | Get frequency of bigrams from list of words
+-- | Get frequency of bigrams from list of bigrams
 freqBigrams :: [String] -> M.Map String (M.Map String Rational)
 freqBigrams ws = L.foldl' countElems M.empty (getBigrams ws)
     where

@@ -1,7 +1,13 @@
 run: 
 	cabal run --ghc-options=-threaded cse230-final-project
 
-run-image:
+random-mode: 
+	cabal run --ghc-options=-threaded cse230-final-project -- random
+
+shakespeare-mode: 
+	cabal run --ghc-options=-threaded cse230-final-project -- shakespeare
+
+image:
 	cabal run --ghc-options=-threaded test-image
 
 prompt:

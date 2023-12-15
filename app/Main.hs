@@ -34,6 +34,8 @@ import qualified Brick.Widgets.List as B
 import qualified Data.Text.Zipper as TZ
 import qualified Data.Text as TX
 import BigramPromptGen (makePrompt)
+import RandomPromptGen (makeRandPrompt)
+import System.Environment (getArgs)
 
 data EditorName = EName | RefEName deriving (Eq, Ord, Show)
 
@@ -267,9 +269,18 @@ asciiImg path = do
 
 main :: IO ()
 main = do
-  -- let prompt = referenceText
-  -- prompt  <- makeRandPrompt ['a'..'z']
-  prompt <- makePrompt "training-text/shakespeare.txt"
-  iDocs   <- getRandomImageDocs "art"
-  st      <- M.defaultMain app (initialState iDocs prompt)
-  return ()
+  args <- getArgs 
+  if args == ["shakespeare"] then
+    do prompt <- makePrompt "training-text/shakespeare.txt"
+       iDocs  <- getRandomImageDocs "art"
+       st     <- M.defaultMain app (initialState iDocs prompt)
+       return ()
+  else if args == ["random"] then
+    do prompt <- makeRandPrompt ['a'..'z']
+       iDocs  <- getRandomImageDocs "art"
+       st     <- M.defaultMain app (initialState iDocs prompt)
+       return ()
+  else 
+    do iDocs   <- getRandomImageDocs "art"
+       st      <- M.defaultMain app (initialState iDocs referenceText)
+       return ()

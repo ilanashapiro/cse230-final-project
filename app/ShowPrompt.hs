@@ -1,8 +1,14 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
-import PromptGen (makePrompt)
+import RandomPromptGen (makeRandPrompt)
+import BigramPromptGen (makePrompt)
+
 
 main :: IO ()
 main = do
-    s <- makePrompt ['a' .. 'z']
-    print s
+    sRandom <- makeRandPrompt ['a'..'z']
+    print sRandom
+    sBigram <- makePrompt "training-text/shakespeare.txt"
+    print sBigram

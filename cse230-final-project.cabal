@@ -28,7 +28,8 @@ executable cse230-final-project
 
     -- Modules included in this executable, other than Main.
     other-modules: ImageGen,
-                   PromptGen,
+                   BigramPromptGen,
+                   RandomPromptGen,
                    WordAnalysis
 
     -- LANGUAGE extensions used by modules in this package.
@@ -82,7 +83,8 @@ executable test-image
 
 executable test-prompt
     main-is:        ShowPrompt.hs
-    other-modules:  PromptGen
+    other-modules:  BigramPromptGen,
+                    RandomPromptGen
     build-depends:  MonadRandom,
                     base ^>=4.17.2.0,
                     containers,

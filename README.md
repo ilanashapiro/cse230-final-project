@@ -68,3 +68,6 @@ We decided to adhere to the following definitions:
 <!-- Do you expect to meet your goals until the deadline?
 If not, how will you modify your goals? -->
 We expect to meet our goal of completing a minimum viable product with the 4 components described above. If necessary, we can modify our goals by simplifying some parts of our implementation, for example using finite prompts or revealing images line-by-line. Additional features--such as typing speed, fine-grained error storing, and an advanced version with information about which characters a user tends to make errors on--can be incorporated as time allows.
+
+### Citations
+For the words per minute counter, I roughly modeled this feature off of the gotta-go-fast project: https://github.com/callum-oakley/gotta-go-fast/blob/master/src/GottaGoFast.hs#L177-L178. However, note that I did NOT copy any of the code, and merely used the implementation as an inspiration. The entirely of the code is my own and the impelementation is also entirely original. I'm not sure whether this even requires a citation but I am doing so to be safe.
